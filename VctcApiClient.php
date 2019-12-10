@@ -131,6 +131,7 @@ class VctcApiClient
 
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         if (!empty($body)) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
@@ -178,7 +179,7 @@ class VctcApiClient
         $keys = array_merge($keys, array_keys($arr));
         foreach ($arr as $item) {
             if (is_array($item)) {
-                getKeys($item, $keys);
+                self::getKeys($item, $keys);
             }
         }
         $keys = array_unique($keys);
