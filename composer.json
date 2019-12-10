@@ -1,0 +1,22 @@
+{
+    "name": "vastchain/vctc-php-sdk",
+    "description": "Vastchain Trust Cloud API interface of signing and calling SDK.",
+    "type": "library",
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "Vast Chain",
+            "email": "lichenghua@vastchain.ltd"
+        }
+    ],
+    "require": {
+        "phpunit/phpunit": 7.5,
+        "php":">=7.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "vastchain/vctc-php-sdk": "/"
+        }
+    },
+    "homepage": "https://github.com/vastchain/vctc-php-sdk"
+}
