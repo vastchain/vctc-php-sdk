@@ -97,18 +97,10 @@ class VctcApiClient
     public function callAPI($method, $path, $query, $body)
     {
         if (is_array($body)) {
-            foreach ($body as $k => $v) {
-                if (!$v) {
-                    unset($body[$k]);
-                }
-            }
+            $this->fliterParams($body);
         }
         if (is_array($query)) {
-            foreach ($query as $k => $v) {
-                if (!$v) {
-                    unset($query[$k]);
-                }
-            }
+            $this->fliterParams($query);
         }
 
         if (!is_string($body) && !empty($body)) {
@@ -173,7 +165,18 @@ class VctcApiClient
     {
         return $this->callAPI('POST', $path, $query, $body);
     }
+    public  function fliterParams(array &$arr)
+    {
 
+        foreach ($arr as$k=> $v) {
+            if (!$v){
+                unset($arr[$k]);
+            }
+            if (is_array($v)) {
+                $this->fliterParams($arr[$k] );
+            }
+        }
+    }
     private static function getKeys(array $arr, array &$keys)
     {
         $keys = array_merge($keys, array_keys($arr));
