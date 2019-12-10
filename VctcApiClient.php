@@ -241,7 +241,7 @@ class VctcApiClient
     public function fetchOnChainIds(array $items)
     {
         $itemStruct = ["type" => "", "queryType" => "", "id" => ""];
-        return $this->callAPI('POST', $this::COMMON_CHAIN_UPLOAD_FETCH_ON_CHAIN_IDS_PATH, array(), json_encode(array('items' => $items)));
+        return $this->callAPI('POST', $this::COMMON_CHAIN_UPLOAD_FETCH_ON_CHAIN_IDS_PATH, array(), array('items' => $items));
     }
 
     /**
