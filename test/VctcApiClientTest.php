@@ -6,8 +6,7 @@
  * Time: 17:04
  */
 
-
-require("./VctcApiClient.php");
+namespace Vastchain\VctcPhpSdk;
 
 use PHPUnit\Framework\TestCase;
 
@@ -55,11 +54,6 @@ class VctcApiClientTest extends TestCase
         $this->assertNotEmpty($re);
     }
 
-    public function testCallAPI()
-    {
-
-    }
-
     public function testEveriPay()
     {
         $itemStruct = [
@@ -91,11 +85,6 @@ class VctcApiClientTest extends TestCase
     {
         $re = $this->vctcApiClient->WechatAppPay("1231241", false);
         $this->assertNotEmpty($re);
-    }
-
-    public function testPost()
-    {
-
     }
 
     public function testFungibleTokenIssue()
@@ -131,11 +120,6 @@ class VctcApiClientTest extends TestCase
 
     public function testUploadCommonChain()
     {
-    }
-
-    public function test__construct()
-    {
-
     }
 
     public function testFetchOnChainIds()
@@ -327,10 +311,4 @@ class VctcApiClientTest extends TestCase
 
     }
 
-    public function testFliterParams()
-    {
-        $itemStruct = ["type" => "intelligent-doorlock-model", "args" => ["id" => "fdasfdafda","abc"=>""],"bc"=>""];
-        $re = $this->vctcApiClient->FliterParams($itemStruct);
-        $this->assertNotEmpty($itemStruct);
-    }
 }
