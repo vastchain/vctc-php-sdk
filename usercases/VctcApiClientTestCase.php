@@ -6,11 +6,11 @@
  * Time: 17:04
  */
 
-namespace Vastchain\VctcPhpSdk;
-
+namespace Vastchain\UserCases;
+use Vastchain\VctcPhpSdk\VctcApiClient;
 use PHPUnit\Framework\TestCase;
 
-class VctcApiClientTest extends TestCase
+class VctcApiClientTestCase extends TestCase
 {
     public $vctcApiClient;
 

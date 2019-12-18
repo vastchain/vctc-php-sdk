@@ -13,7 +13,7 @@ class VctcError
 {
     const TypeError = 1001;
     const StructError = 1002;
-    const HTTP_ERRORS = [
+    const API_ERRORS = [
         "E0640001" => "notFound",
         "E0640002" => "httpApi_request_exceed_rate_limit",
         "E0640003" => "httpApi_invalid_signature",

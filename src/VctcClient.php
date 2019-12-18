@@ -10,7 +10,11 @@ namespace Vastchain\VctcPhpSdk;
 
 use \Exception;
 
-class VctcHttp
+/**
+ * Class VctcClient  for http request
+ * @package Vastchain\VctcPhpSdk
+ */
+class VctcClient
 {
     private $apiPrefix = 'https://v1.api.tc.vastchain.ltd';
     private $appId;
@@ -24,13 +28,20 @@ class VctcHttp
 
         $this->appId = $appId;
         $this->apiPrefix = $apiPrefix;
-        $this->apiPrefix = $apiPrefix;
+        $this->appSecret = $appSecret;
     }
 
+
     /**
-     * Calculate the signature of a request.
+     *  Calculate the signature of a request.
+     * @param $method string Method of requesting http
+     * @param $path string  Path of requesting http
+     * @param $query array Query of requesting http
+     * @param $body array Body of requesting http
+     * @return mixed
+     * @throws VctcException
      */
-    public function getSignature($method, $path, $query, $body)
+    public function getSignature(string $method,string $path,array $query, array $body)
     {
         if (empty($path)) {
             throw new Exception("invalid path");
@@ -61,8 +72,8 @@ class VctcHttp
         }
         $textForSigning .= $queryStr;
 
-        if (!empty($body)) {
-            $textForSigning .= "\n" . $body;
+        if ($body) {
+            $textForSigning .= "\n" . json_encode($body);
         }
 
         $query["_s"] = hash_hmac('sha256', $textForSigning, $this->appSecret);
@@ -74,7 +85,16 @@ class VctcHttp
         );
     }
 
-    public function callAPI($method, $path, $query, $body)
+    /**
+     *  Request http api
+     * @param $method string Method of requesting http
+     * @param $path string  Path of requesting http
+     * @param $query array Query of requesting http
+     * @param $body array Body of requesting http
+     * @return mixed
+     * @throws VctcException
+     */
+    public function callAPI(string $method,string $path,array $query,array $body)
     {
         if (is_array($body)) {
             $this->fliterParams($body);
@@ -83,9 +103,6 @@ class VctcHttp
             $this->fliterParams($query);
         }
 
-        if (!is_string($body) && !empty($body)) {
-            $body = json_encode($body);
-        }
         $signatures = $this->getSignature($method, $path, $query, $body);
 
         $ch = curl_init();
@@ -105,8 +122,8 @@ class VctcHttp
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 5);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        if (!empty($body)) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        if ($body) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
         }
 
         //Execute the request.
@@ -136,26 +153,30 @@ class VctcHttp
         throw new Exception('invalid response: ' . $data);
     }
 
-    public function get($path, $query = NULL)
+    public function get($path, $query = [])
     {
-        return $this->callAPI('GET', $path, $query, NULL);
+        return $this->callAPI('GET', $path, $query, []);
     }
 
-    public function post($path, $query, $body)
+    public function post(string $path,array $query,array $body)
     {
         return $this->callAPI('POST', $path, $query, $body);
     }
 
-    public function put($path, $query, $body)
+    public function put(string $path,array $query, array $body)
     {
         return $this->callAPI('PUT', $path, $query, $body);
     }
 
-    public function delete($path, $query, $body)
+    public function delete(string $path, array $query)
     {
-        return $this->callAPI('DELETE', $path, $query, $body);
+        return $this->callAPI('DELETE', $path, $query, []);
     }
 
+    /**
+     * Filter parameters with empty  values
+     * @param array $arr Parameters to Filter
+     */
     public function fliterParams(array &$arr)
     {
 

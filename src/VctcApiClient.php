@@ -43,21 +43,11 @@ class VctcApiClient
         $this->appId = $appId;
         $this->appSecret = $appSecret;
         if (!self::$VctcHttp) {
-            self::$VctcHttp = new VctcHttp($appId, $appSecret, $this::API_PREFIX);
+            self::$VctcHttp = new VctcClient($appId, $appSecret, $this::API_PREFIX);
         }
 
     }
 
-    private static function getKeys(array $arr, array &$keys)
-    {
-        $keys = array_merge($keys, array_keys($arr));
-        foreach ($arr as $item) {
-            if (is_array($item)) {
-                self::getKeys($item, $keys);
-            }
-        }
-        $keys = array_unique($keys);
-    }
 
     #region interfaces to On-chain process
 
@@ -412,7 +402,7 @@ class VctcApiClient
             "orderId" => $orderId,
             "extraInfo" => $extraInfo
         ];
-        return self::$VctcHttp->post($this::SUBMERCHANT_PAY_PATH, array(), json_encode($items));
+        return self::$VctcHttp->post($this::SUBMERCHANT_PAY_PATH, array(), $items);
     }
 
 

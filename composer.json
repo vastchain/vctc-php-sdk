@@ -10,6 +10,7 @@
         }
     ],
     "require": {
+        "ext-curl": "*",
         "phpunit/phpunit": "7.5",
         "php":">=7.1"
     },
