@@ -1,11 +1,9 @@
 <?php
 
+namespace Vastchain\VctcPhpSdk;
 
-class ErrorCode
-{
-    const TypeError = 1001;
-    const StructError = 1002;
-}
+use Exception;
+
 
 /**
  * Api Client for Vastchain API Interface.
@@ -32,8 +30,7 @@ class VctcApiClient
     private const DONATION_EXPLORER_PATH = '/common-chain-upload/blockchain-explorer/special/donation';
     private const MERCHANT_LOGIN_PATH = '/merchant/login';
     private const CREATE_MERCHANT_PATH = '/merchant';
-
-
+    private static $VctcHttp;
     private $appId;
     private $appSecret;
 
@@ -45,176 +42,13 @@ class VctcApiClient
 
         $this->appId = $appId;
         $this->appSecret = $appSecret;
-    }
-
-    /**
-     * Calculate the signature of a request.
-     */
-    public function getSignature($method, $path, $query, $body)
-    {
-        if (empty($path)) {
-            throw new Exception("invalid path");
-        }
-
-        if ($method != "GET" && $method != "POST" && $method != "DELETE" && $method != "PUT") {
-            throw new Exception("invalid method, only GET, POST, DELETE and PUT is supported");
-        }
-
-        $textForSigning = $method . " " . $path . "\n";
-
-        if (empty($query)) {
-            $query = array();
-        }
-
-        $query["_appid"] = $this->appId;
-        $query["_t"] = time() * 1000;
-
-        ksort($query);
-
-        $queryStr = "";
-        foreach ($query as $k => $v) {
-            if ($queryStr != "") {
-                $queryStr .= "&";
-            }
-
-            $queryStr .= ($k . "=" . $v);
-        }
-        $textForSigning .= $queryStr;
-
-        if (!empty($body)) {
-            $textForSigning .= "\n" . $body;
-        }
-
-        $query["_s"] = hash_hmac('sha256', $textForSigning, $this->appSecret);
-
-        return array(
-            "fullQueries" => $query,
-            "signature" => $query["_s"],
-            "timestamp" => $query["_t"]
-        );
-    }
-
-    public function callAPI($method, $path, $query, $body)
-    {
-        if (is_array($body)) {
-            $this->fliterParams($body);
-        }
-        if (is_array($query)) {
-            $this->fliterParams($query);
-        }
-
-        if (!is_string($body) && !empty($body)) {
-            $body = json_encode($body);
-        }
-        $signatures = $this->getSignature($method, $path, $query, $body);
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $this::API_PREFIX . $path . '?' . http_build_query($signatures["fullQueries"]));
-
-        if ($method == 'POST') {
-            curl_setopt($ch, CURLOPT_POST, 1);
-        } else if ($method != 'GET') {
-            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-        }
-
-        $headers = array();
-        $headers[] = "Content-Type: application/json";
-        $headers[] = "User-Agent: vctc-sdk/php Version=0.0.1";
-
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        if (!empty($body)) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-        }
-
-        //Execute the request.
-        $data = curl_exec($ch);
-
-        $err = curl_error($ch);
-        if (!empty($err)) {
-            throw new Exception($err);
-        }
-
-        //Close the cURL handle.
-        curl_close($ch);
-
-        //Print the data out onto the page.
-        $ret = json_decode($data, TRUE);
-
-        if (!empty($ret)) {
-            if (!empty($ret['error'])) {
-                $ex = new VctcException($ret['error'] . ": " . $ret['msg'], 0, NULL);
-                $ex->setRaw($ret);
-
-                throw $ex;
-            }
-            return $ret;
-        }
-
-        throw new Exception('invalid response: ' . $data);
-    }
-
-    public function get($path, $query = NULL)
-    {
-        return $this->callAPI('GET', $path, $query, NULL);
-    }
-
-    public function post($path, $query, $body)
-    {
-        return $this->callAPI('POST', $path, $query, $body);
-    }
-    public  function fliterParams(array &$arr)
-    {
-
-        foreach ($arr as$k=> $v) {
-            if (!$v){
-                unset($arr[$k]);
-            }
-            if (is_array($v)) {
-                $this->fliterParams($arr[$k] );
-            }
-        }
-    }
-    private static function getKeys(array $arr, array &$keys)
-    {
-        $keys = array_merge($keys, array_keys($arr));
-        foreach ($arr as $item) {
-            if (is_array($item)) {
-                self::getKeys($item, $keys);
-            }
-        }
-        $keys = array_unique($keys);
-    }
-
-    /**
-     * @param array $struct
-     * @param array $params
-     * @throws VctcException
-     */
-    private static function checkParams(array $struct, array $params)
-    {
-
-        $keys = [];
-        self::getKeys($params, $keys);
-        $structs = [];
-        self::getKeys($struct, $structs);
-        $diff = array_diff($keys, $structs);
-        if ($diff) {
-            throw new VctcException("invalid or missed key:" . implode(",", $diff), ErrorCode::StructError);
-        }
-    }
-
-    private static function checkType(string $type, array $params)
-    {
-        foreach ($params as $param) {
-            if ($param["type"] != $type) {
-                throw new VctcException("invalid type:" . $param["type"], ErrorCode::TypeError);
-            }
+        if (!self::$VctcHttp) {
+            self::$VctcHttp = new VctcClient($appId, $appSecret, $this::API_PREFIX);
         }
 
     }
+
+
     #region interfaces to On-chain process
 
     /**
@@ -227,7 +61,7 @@ class VctcApiClient
      */
     public function uploadCommonChain(array $items, array $itemStruct = ["type" => "", "args" => ["id" => ""]])
     {
-        return $this->callAPI('POST', $this::COMMON_CHAIN_UPLOAD_PATH, array(), array('items' => $items));
+        return self::$VctcHttp->post($this::COMMON_CHAIN_UPLOAD_PATH, array(), array('items' => $items));
     }
 
 
@@ -241,7 +75,7 @@ class VctcApiClient
     public function fetchOnChainIds(array $items)
     {
         $itemStruct = ["type" => "", "queryType" => "", "id" => ""];
-        return $this->callAPI('POST', $this::COMMON_CHAIN_UPLOAD_FETCH_ON_CHAIN_IDS_PATH, array(), array('items' => $items));
+        return self::$VctcHttp->post($this::COMMON_CHAIN_UPLOAD_FETCH_ON_CHAIN_IDS_PATH, array(), array('items' => $items));
     }
 
     /**
@@ -303,17 +137,17 @@ class VctcApiClient
     public function createDataitem(array $items)
     {
         $itemStruct = ["type" => "data-item-create",
-                        "args" => [
-                            "id" => "",
-                            "parentId" => "",
-                            "data" => [
-                                [
-                                    "key" => "",
-                                    "type" => "",
-                                    "value" => ""
-                                ]
-                            ]
-                        ]];
+            "args" => [
+                "id" => "",
+                "parentId" => "",
+                "data" => [
+                    [
+                        "key" => "",
+                        "type" => "",
+                        "value" => ""
+                    ]
+                ]
+            ]];
         return $this->uploadCommonChain($items, $itemStruct);
     }
 
@@ -440,7 +274,7 @@ class VctcApiClient
     /**
      * Submit everiPass, which is mainly used for pass verification, such as door locks, degree entry, school tickets, movie tickets, etc., optional destruction.
      * @param array $items Containing following keys
-     * @param string $type  ="everiPass"
+     * @param string $type ="everiPass"
      * @param array $args Containing following keys
      * @param string $evtLink Reference https://www.everitoken.io/developers/deep_dive/evtlink,everipay,everipass。
      * @param string $actionMemo Not Required, remark
@@ -568,7 +402,7 @@ class VctcApiClient
             "orderId" => $orderId,
             "extraInfo" => $extraInfo
         ];
-        return $this->callAPI('POST', $this::SUBMERCHANT_PAY_PATH, array(), json_encode($items));
+        return self::$VctcHttp->post($this::SUBMERCHANT_PAY_PATH, array(), $items);
     }
 
 
@@ -582,7 +416,7 @@ class VctcApiClient
     public function submerchantPrePayInfo(string $prepayid, int $waitForFinish = 0)
     {
 
-        return $this->callAPI('GET', $this::SUBMERCHANT_PAY_PRE_PAY_PREPAYID_PATH . "/{$prepayid}", ["waitForFinish" => $waitForFinish], []);
+        return self::$VctcHttp->get($this::SUBMERCHANT_PAY_PRE_PAY_PREPAYID_PATH . "/{$prepayid}", ["waitForFinish" => $waitForFinish]);
     }
 
     /**
@@ -594,7 +428,7 @@ class VctcApiClient
     public function wechatScanPay(string $prepayid)
     {
 
-        return $this->callAPI('POST', $this::SUBMERCHANT_PAY_WECHAT_PAY_NATIVE_PATH, [], ["prepayid" => $prepayid]);
+        return self::$VctcHttp->post($this::SUBMERCHANT_PAY_WECHAT_PAY_NATIVE_PATH, [], ["prepayid" => $prepayid]);
     }
 
     /**
@@ -607,7 +441,7 @@ class VctcApiClient
     public function wechatMiniPay(string $prepayid, string $openId)
     {
 
-        return $this->callAPI('POST', $this::SUBMERCHANT_PAY_WECHAT_MINI_PAY_PATH, [], ["prepayid" => $prepayid, "openId" => $openId]);
+        return self::$VctcHttp->post($this::SUBMERCHANT_PAY_WECHAT_MINI_PAY_PATH, [], ["prepayid" => $prepayid, "openId" => $openId]);
     }
 
     /**
@@ -617,10 +451,10 @@ class VctcApiClient
      * @return mixed
      * @throws VctcException
      */
-    public function wechatAppPay(string $prepayid, bool $enableProfitSharing=false )
+    public function wechatAppPay(string $prepayid, bool $enableProfitSharing = false)
     {
 
-        return $this->callAPI('POST', $this::SUBMERCHANT_PAY_WECHAT_APP_PAY_PATH, [], ["prepayid" => $prepayid, "enableProfitSharing" => $enableProfitSharing]);
+        return self::$VctcHttp->post($this::SUBMERCHANT_PAY_WECHAT_APP_PAY_PATH, [], ["prepayid" => $prepayid, "enableProfitSharing" => $enableProfitSharing]);
     }
 
     /**
@@ -629,10 +463,10 @@ class VctcApiClient
      * @return mixed
      * @throws VctcException
      */
-    public function refund(string $prepayid,string $loginToken)
+    public function refund(string $prepayid, string $loginToken)
     {
 
-        return $this->callAPI('POST', $this::SUBMERCHANT_PAY_REFUND_PATH, ["loginToken"=>$loginToken], ["prepayid" => $prepayid]);
+        return self::$VctcHttp->post($this::SUBMERCHANT_PAY_REFUND_PATH, ["loginToken" => $loginToken], ["prepayid" => $prepayid]);
     }
 
     /**
@@ -656,7 +490,7 @@ class VctcApiClient
                 "notifyCallbackUrl" => $notifyCallbackUrl
             ]
         ];
-        return $this->callAPI('PUT', $this::MERCHANT_PAYMENT_PARAMS_PATH, [], $post);
+        return self::$VctcHttp->put($this::MERCHANT_PAYMENT_PARAMS_PATH, [], $post);
     }
     /**
      * Intelligent split interface
@@ -685,7 +519,7 @@ class VctcApiClient
             "userAppId" => $userAppId,
             "userId" => $userId,
         ];
-        return $this->callAPI('GET', $this::FUNGIBLE_TOKEN_BALANCE_PATH, $query, []);
+        return self::$VctcHttp->get($this::FUNGIBLE_TOKEN_BALANCE_PATH, $query);
     }
 
     /**
@@ -711,7 +545,7 @@ class VctcApiClient
             "maxAmount" => $maxAmount,
             "uuid" => $uuid
         ];
-        return $this->callAPI('GET', $this::FUNGIBLE_TOKEN_EVERI_PAY_PATH, $query, []);
+        return self::$VctcHttp->get($this::FUNGIBLE_TOKEN_EVERI_PAY_PATH, $query);
     }
 
     #endregion
@@ -743,7 +577,7 @@ class VctcApiClient
             "targetAmount" => $targetAmount
 
         ];
-        return $this->callAPI('POST', $this::CREATE_DONATION_PROJECT_PATH, [], $post);
+        return self::$VctcHttp->post($this::CREATE_DONATION_PROJECT_PATH, [], $post);
     }
 
     /**
@@ -773,7 +607,7 @@ class VctcApiClient
 
         ];
 
-        return $this->callAPI('POST', $this::CREATE_DONATION_DONATION_PATH, [], $post);
+        return self::$VctcHttp->post($this::CREATE_DONATION_DONATION_PATH, [], $post);
     }
 
     /**
@@ -790,7 +624,7 @@ class VctcApiClient
             "originalIds" => $originalIds
         ];
 
-        return $this->callAPI('POST', $this::CREATE_DONATION_FETCH_ONCHAINIDS_PATH, [], $post);
+        return self::$VctcHttp->post($this::CREATE_DONATION_FETCH_ONCHAINIDS_PATH, [], $post);
     }
 
     #endregion
@@ -808,12 +642,12 @@ class VctcApiClient
      */
     public function sendSmsCode(array $items)
     {
-        $itemStruct=[
-            "phoneNumbers"=>"",
-            "codeType"=>"",
-            "code"=>""
+        $itemStruct = [
+            "phoneNumbers" => "",
+            "codeType" => "",
+            "code" => ""
         ];
-        return $this->callAPI('POST', $this::SEND_SMS_VERIFICATIONCODE_PATH, [], ["items"=>$items]);
+        return self::$VctcHttp->post($this::SEND_SMS_VERIFICATIONCODE_PATH, [], ["items" => $items]);
     }
 
 
@@ -837,7 +671,7 @@ class VctcApiClient
             "signOutOnChainId" => $signOutOnChainId,
             "parentOnChainId" => $parentOnChainId,
         ];
-        return $this->callAPI('GET', $this::COMMON_SIGN_EXPLORER_PATH, $item, []);
+        return self::$VctcHttp->get($this::COMMON_SIGN_EXPLORER_PATH, $item);
     }
 
     /**
@@ -855,7 +689,7 @@ class VctcApiClient
             "projectOnChainId" => $projectOnChainId,
             "donateOnChainId" => $donateOnChainId,
         ];
-        return $this->callAPI('GET', $this::DONATION_EXPLORER_PATH, $item, []);
+        return self::$VctcHttp->get($this::DONATION_EXPLORER_PATH, $item);
     }
 
 
@@ -875,7 +709,7 @@ class VctcApiClient
             "userId" => $userId,
             "pw" => $pw,
         ];
-        return $this->callAPI('POST', $this::MERCHANT_LOGIN_PATH, [], $item);
+        return self::$VctcHttp->post($this::MERCHANT_LOGIN_PATH, [], $item);
     }
 
     /**
@@ -900,7 +734,7 @@ class VctcApiClient
                 "parentMerchantId" => $parentMerchantId
             ]
         ];
-        return $this->callAPI('POST', $this::CREATE_MERCHANT_PATH, [], $item);
+        return self::$VctcHttp->post($this::CREATE_MERCHANT_PATH, [], $item);
     }
 
     #endregion
@@ -908,26 +742,4 @@ class VctcApiClient
 
 }
 
-class VctcException extends \Exception
-{
-    public $rawResponse;
-    public $errorCode;
 
-    public function __construct($message, $code, Exception $previous = NULL)
-    {
-        parent::__construct($message, $code, $previous);
-
-    }
-
-    public function setRaw($raw)
-    {
-        $this->rawResponse = $raw;
-        $this->errorCode = $raw['code'];
-    }
-
-    // 自定义字符串输出的样式
-    public function __toString()
-    {
-        return __CLASS__ . ": [{$this->errorCode}] {$this->message}\n";
-    }
-}

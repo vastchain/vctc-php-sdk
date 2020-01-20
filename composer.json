@@ -10,12 +10,13 @@
         }
     ],
     "require": {
-        "phpunit/phpunit": 7.5,
+        "ext-curl": "*",
+        "phpunit/phpunit": "7.5",
         "php":">=7.1"
     },
     "autoload": {
         "psr-4": {
-            "vastchain/vctc-php-sdk": "/"
+            "Vastchain\\VctcPhpSdk\\": "src/"
         }
     },
     "homepage": "https://github.com/vastchain/vctc-php-sdk"
